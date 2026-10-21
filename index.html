@@ -17,6 +17,23 @@
   #rasmlar { max-width: 1200px; margin: 0 auto; text-align: center; }
   #rasmlar img { max-width: 100%; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 24px; display: block; margin-left: auto; margin-right: auto; }
   #yoq { display: none; color: #888; margin-top: 40px; font-size: 18px; text-align: center; }
+  #rasmlar img { cursor: zoom-in; }
+  .izoh { color: #888; font-size: 14px; text-align: center; margin: 0 0 12px; }
+
+  /* To'liq ekranli ko'ruvchi */
+  #lb { position: fixed; inset: 0; background: #000; z-index: 100; display: none; touch-action: none; overflow: hidden; }
+  #lb.ochiq { display: block; }
+  #lb img { position: absolute; left: 0; top: 0; transform-origin: 0 0; max-width: none; border: 0; border-radius: 0; margin: 0;
+            user-select: none; -webkit-user-select: none; -webkit-user-drag: none; will-change: transform; }
+  #lb .tugmalar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 10px;
+                  padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(transparent, rgba(0,0,0,.6)); }
+  #lb button, #lb a { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 10px;
+                      font-size: 18px; min-width: 48px; height: 44px; padding: 0 14px; cursor: pointer; text-decoration: none;
+                      display: inline-flex; align-items: center; justify-content: center; font-family: inherit; }
+  #lb .yop { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; font-size: 22px; }
+  #lb .sanoq { position: absolute; top: calc(18px + env(safe-area-inset-top, 0px)); left: 16px; color: #ccc; font-size: 15px; }
+  #lb .oldingi, #lb .keyingi { position: absolute; top: 50%; transform: translateY(-50%); font-size: 26px; height: 60px; }
+  #lb .oldingi { left: 8px; } #lb .keyingi { right: 8px; }
 </style>
 </head>
 <body>
@@ -27,8 +44,22 @@
       <button onclick="location.hash=''">← Orqaga</button>
       <h2 id="sarlavha"></h2>
     </div>
+    <p class="izoh" id="izoh">Rasmni kattalashtirish uchun ustiga bosing</p>
     <div id="rasmlar"></div>
     <div id="yoq">Bu mavzu uchun rasm hali yuklanmagan.</div>
+  </div>
+
+  <div id="lb" role="dialog" aria-label="Rasmni kattalashtirib ko'rish">
+    <img id="lbImg" alt="">
+    <span class="sanoq" id="lbSanoq"></span>
+    <button class="yop" type="button" id="lbYop" aria-label="Yopish">✕</button>
+    <button class="oldingi" type="button" id="lbOld" aria-label="Oldingi rasm">‹</button>
+    <button class="keyingi" type="button" id="lbKey" aria-label="Keyingi rasm">›</button>
+    <div class="tugmalar">
+      <button type="button" id="lbMinus" aria-label="Kichraytirish">−</button>
+      <button type="button" id="lbAsl">Asl holat</button>
+      <button type="button" id="lbPlus" aria-label="Kattalashtirish">+</button>
+    </div>
   </div>
 
 <script>
@@ -69,7 +100,122 @@
     img.src = asos + "." + turlar[0];
   }
 
-  function qosh(img) { img.alt = ""; joy.appendChild(img); }
+  function qosh(img) {
+    img.alt = "";
+    img.addEventListener("click", function () {
+      var hammasi = Array.prototype.slice.call(joy.querySelectorAll("img"));
+      lbOch(hammasi.indexOf(img));
+    });
+    joy.appendChild(img);
+  }
+
+  // ===== To'liq ekranli ko'ruvchi: ikki barmoq bilan yaqinlashtirish, surish, ikki marta bosish =====
+  var lb = document.getElementById("lb"), lbImg = document.getElementById("lbImg");
+  var lbIndex = 0, sc = 1, tx = 0, ty = 0, minSc = 1;
+  var nuqtalar = {}, boshPinch = null, boshPan = null, oxirgiBosish = 0, surildi = false;
+
+  function lbRasmlar() { return Array.prototype.slice.call(joy.querySelectorAll("img")); }
+  function qoll() { lbImg.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + sc + ")"; }
+  function chegara() {
+    var W = lb.clientWidth, H = lb.clientHeight, w = lbImg.naturalWidth * sc, h = lbImg.naturalHeight * sc;
+    tx = w <= W ? (W - w) / 2 : Math.min(0, Math.max(W - w, tx));
+    ty = h <= H ? (H - h) / 2 : Math.min(0, Math.max(H - h, ty));
+  }
+  function moslash() {
+    var W = lb.clientWidth, H = lb.clientHeight;
+    minSc = Math.min(W / lbImg.naturalWidth, H / lbImg.naturalHeight, 1);
+    sc = minSc; tx = 0; ty = 0; chegara(); qoll();
+  }
+  function zoom(yangi, cx, cy) {
+    yangi = Math.max(minSc, Math.min(yangi, Math.max(minSc * 8, 4)));
+    tx = cx - (cx - tx) * (yangi / sc); ty = cy - (cy - ty) * (yangi / sc);
+    sc = yangi; chegara(); qoll();
+  }
+  function lbOch(i) {
+    var r = lbRasmlar(); if (!r.length) return;
+    lbIndex = (i + r.length) % r.length;
+    lbImg.onload = moslash;
+    lbImg.src = r[lbIndex].src;
+    if (lbImg.complete && lbImg.naturalWidth) moslash();
+    document.getElementById("lbSanoq").textContent = r.length > 1 ? (lbIndex + 1) + " / " + r.length : "";
+    document.getElementById("lbOld").style.display = r.length > 1 ? "" : "none";
+    document.getElementById("lbKey").style.display = r.length > 1 ? "" : "none";
+    lb.classList.add("ochiq"); document.body.style.overflow = "hidden";
+  }
+  function lbYop() { lb.classList.remove("ochiq"); document.body.style.overflow = ""; nuqtalar = {}; }
+
+  document.getElementById("lbYop").onclick = lbYop;
+  document.getElementById("lbOld").onclick = function () { lbOch(lbIndex - 1); };
+  document.getElementById("lbKey").onclick = function () { lbOch(lbIndex + 1); };
+  document.getElementById("lbPlus").onclick = function () { zoom(sc * 1.5, lb.clientWidth / 2, lb.clientHeight / 2); };
+  document.getElementById("lbMinus").onclick = function () { zoom(sc / 1.5, lb.clientWidth / 2, lb.clientHeight / 2); };
+  document.getElementById("lbAsl").onclick = moslash;
+  window.addEventListener("resize", function () { if (lb.classList.contains("ochiq")) moslash(); });
+  document.addEventListener("keydown", function (e) {
+    if (!lb.classList.contains("ochiq")) return;
+    if (e.key === "Escape") lbYop();
+    else if (e.key === "ArrowLeft") lbOch(lbIndex - 1);
+    else if (e.key === "ArrowRight") lbOch(lbIndex + 1);
+  });
+
+  lb.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    zoom(sc * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY);
+  }, { passive: false });
+
+  function ozimi(e) { return e.target === lb || e.target === lbImg; }
+  lb.addEventListener("pointerdown", function (e) {
+    if (!ozimi(e)) return;
+    lb.setPointerCapture(e.pointerId);
+    nuqtalar[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var id = Object.keys(nuqtalar);
+    if (id.length === 2) {
+      var a = nuqtalar[id[0]], b = nuqtalar[id[1]];
+      boshPinch = { d: Math.hypot(a.x - b.x, a.y - b.y), sc: sc, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, tx: tx, ty: ty };
+      boshPan = null;
+    } else if (id.length === 1) {
+      boshPan = { x: e.clientX, y: e.clientY, tx: tx, ty: ty }; surildi = false;
+    }
+  });
+  lb.addEventListener("pointermove", function (e) {
+    if (!nuqtalar[e.pointerId]) return;
+    nuqtalar[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var id = Object.keys(nuqtalar);
+    if (id.length === 2 && boshPinch) {
+      var a = nuqtalar[id[0]], b = nuqtalar[id[1]];
+      var d = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+      var yangi = Math.max(minSc, Math.min(boshPinch.sc * d / boshPinch.d, Math.max(minSc * 8, 4)));
+      var k = yangi / boshPinch.sc;
+      tx = cx - (boshPinch.cx - boshPinch.tx) * k;
+      ty = cy - (boshPinch.cy - boshPinch.ty) * k;
+      sc = yangi; chegara(); qoll();
+    } else if (id.length === 1 && boshPan) {
+      var dx = e.clientX - boshPan.x, dy = e.clientY - boshPan.y;
+      if (Math.abs(dx) + Math.abs(dy) > 6) surildi = true;
+      tx = boshPan.tx + dx; ty = boshPan.ty + dy; chegara(); qoll();
+    }
+  });
+  function qoyibYubor(e) {
+    if (!nuqtalar[e.pointerId]) return;
+    var bittaEdi = Object.keys(nuqtalar).length === 1;
+    var ps = boshPan;
+    delete nuqtalar[e.pointerId];
+    var qolgan = Object.keys(nuqtalar);
+    if (qolgan.length === 1) { var p = nuqtalar[qolgan[0]]; boshPan = { x: p.x, y: p.y, tx: tx, ty: ty }; boshPinch = null; surildi = true; return; }
+    if (!bittaEdi || !ps) return;
+    // asl o'lchamda chapga/o'ngga surish — keyingi/oldingi rasm
+    var dx = e.clientX - ps.x;
+    if (sc <= minSc * 1.01 && Math.abs(dx) > 60 && lbRasmlar().length > 1) { lbOch(lbIndex + (dx < 0 ? 1 : -1)); return; }
+    if (!surildi) {
+      var hozir = Date.now();
+      if (hozir - oxirgiBosish < 300) {           // ikki marta bosish
+        if (sc > minSc * 1.05) moslash(); else zoom(Math.max(minSc * 2.5, 1), e.clientX, e.clientY);
+        oxirgiBosish = 0;
+      } else oxirgiBosish = hozir;
+    }
+  }
+  lb.addEventListener("pointerup", qoyibYubor);
+  lb.addEventListener("pointercancel", qoyibYubor);
 
   function korsat() {
     var n = parseInt(location.hash.slice(1), 10);
