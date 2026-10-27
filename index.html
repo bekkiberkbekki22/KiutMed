@@ -64,19 +64,15 @@
 
 <script>
   // ===== MENYU =====
-  // Har bir mavzu raqami bo'yicha rasm fayllari:
-  //   bitta rasm:     2.png
-  //   bir nechta:     2-1.png, 2-2.png, 2-3.png ... (tartib bilan)
+  // Har bir mavzu: nom va rasm fayllari qaysi raqam bilan boshlanishi.
+  //   bitta rasm:     8.png
+  //   bir nechta:     8-1.png, 8-2.png, 8-3.png ... (tartib bilan)
+  // Yangi mavzu qo'shish: shu ro'yxatga yangi qator yozing.
   var mavzular = [
-    "Topshiriq 1",
-    "Excelda formula",
-    "INFORMATION TECHNOLOGIES IN CONSTRUCTION",
-    "Topshiriq 5",
-    "Topshiriq 6",
-    "Topshiriq 8"
+    { nom: "Topshiriq 8", fayl: "8", eski: "6" },
+    { nom: "Topshiriq 9", fayl: "9" }
   ];
-  // Raqamsiz nomlangan eski rasmlar (mavzu raqami: fayl nomi)
-  var maxsus = { 1: "Rasm_1.png" };
+  var maxsus = {};
 
   var turlar = ["png", "jpg", "jpeg", "PNG", "JPG", "JPEG"];
   var menu = document.getElementById("menu");
@@ -87,7 +83,7 @@
   mavzular.forEach(function (nom, i) {
     var a = document.createElement("a");
     a.href = "#" + (i + 1);
-    a.textContent = nom;
+    a.textContent = nom.nom;
     menu.appendChild(a);
   });
 
@@ -235,15 +231,22 @@
     }
     menu.style.display = "none";
     view.style.display = "block";
-    document.getElementById("sarlavha").textContent = mavzular[n - 1];
+    document.getElementById("sarlavha").textContent = mavzular[n - 1].nom;
+    var m0 = mavzular[n - 1];
     window.scrollTo(0, 0);
     var topildi = 0;
+    // avval asosiy raqam (masalan 8), hech narsa topilmasa eski raqam (masalan 6)
+    var prefs = [m0.fayl].concat(m0.eski ? [m0.eski] : []), pi = 0, pref = prefs[0];
 
-    function oxiri() { if (meniki === sanoq && topildi === 0) yoq.style.display = "block"; }
+    function oxiri() {
+      if (meniki !== sanoq || topildi > 0) return;
+      if (pi < prefs.length - 1) { pi++; pref = prefs[pi]; boshla(); return; }
+      yoq.style.display = "block";
+    }
 
     // n-1, n-2, n-3 ... ketma-ket, birinchi topilmagan joyda to'xtaydi
     function ketma(i) {
-      yukla(n + "-" + i, function (img) {
+      yukla(pref + "-" + i, function (img) {
         if (meniki !== sanoq) return;
         if (img) { qosh(img); topildi++; ketma(i + 1); }
         else oxiri();
@@ -252,7 +255,7 @@
 
     function boshla() {
       // bitta rasm: n.png
-      yukla(String(n), function (img) {
+      yukla(pref, function (img) {
         if (meniki !== sanoq) return;
         if (img) { qosh(img); topildi++; }
         ketma(1);
